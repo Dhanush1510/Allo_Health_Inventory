@@ -1,0 +1,3 @@
+{
+  "buildCommand": "prisma generate && prisma migrate deploy && if [ \"$RUN_SEED\" = \"true\" ]; then prisma db seed; fi && next build"
+}

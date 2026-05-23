@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Allo Health Inventory Reservation Demo
 
-## Getting Started
+A Next.js App Router application that implements a concurrent-safe inventory reservation flow for multi-warehouse stock.
 
-First, run the development server:
+## Features
+
+- Products and warehouses with per-warehouse stock counts
+- `total` vs `reserved` stock tracking
+- `pending`, `confirmed`, and `released` reservation states
+- Concurrent-safe reservation endpoint using an atomic stock update in PostgreSQL
+- Lazy expiry cleanup on reads and during reservation operations
+- Frontend product page with reservation buttons and live checkout flow
+- Idempotency support for reserve and confirm APIs
+
+## Local development
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create a `.env` file with a **hosted** PostgreSQL connection string (Neon, Supabase, or Railway free tiers work well):
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+```
+
+For local development you can also run Postgres in Docker:
+
+```bash
+docker run -d --name allo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=allo -p 5432:5432 postgres:16
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/allo"
+```
+
+3. Run Prisma migrations and seed the database:
+
+```bash
+npx prisma migrate dev --name init
+npx prisma db seed
+```
+
+Prisma 7 uses the `@prisma/adapter-pg` driver adapter; the connection string is read at runtime in `src/lib/db.ts`, not from the schema file. The client is generated into `src/generated/prisma` (`prisma generate` runs on `npm install` and `npm run build`).
+
+> If you previously used SQLite (`file:./dev.db`), replace `DATABASE_URL` with a PostgreSQL URL before running the app.
+
+4. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Reservation expiry mechanism
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses a lazy cleanup approach:
 
-## Learn More
+- `GET /api/products` runs `releaseExpiredReservations()` before loading products
+- `POST /api/reservations` also calls cleanup before attempting a new hold
+- expired reservations are marked `RELEASED` and their reserved stock is decremented
 
-To learn more about Next.js, take a look at the following resources:
+In production, a cron job or background worker could periodically run the same cleanup logic.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Idempotency (bonus)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`POST /api/reservations` and `POST /api/reservations/:id/confirm` accept an optional `Idempotency-Key` header.
 
-## Deploy on Vercel
+- First request with a key creates an `Idempotency` row in `PENDING`, runs the operation, then stores the HTTP status and JSON body as `SUCCESS`.
+- Retries with the same key return the stored response without re-running stock updates.
+- Concurrent duplicate requests while `PENDING` receive `409`.
+- On unexpected `500` errors during reserve, the key row is deleted so the client can safely retry.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The checkout UI generates a fresh UUID per confirm/cancel action; reserve uses a new key per button click.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes and trade-offs
+
+- The reservation API uses a single atomic SQL `UPDATE "Stock" SET "reserved" = "reserved" + units WHERE (total - reserved) >= units` inside a transaction. Under concurrent requests, exactly one request can claim the last available unit.
+- The confirmation and release endpoints preserve idempotency via the optional `Idempotency-Key` header.
+- The frontend is intentionally lightweight and focused on the reservation flow.
+- Product images use a shared placeholder asset so seeded demo data displays consistently.
+- With more time: a dedicated cron/worker for expiry instead of lazy cleanup only, shared idempotency helper to reduce duplication across routes, and automated concurrency tests against the low-stock SKUs in seed data.
+
+## API Endpoints
+
+- `GET /api/products`
+- `GET /api/warehouses`
+- `POST /api/reservations`
+- `GET /api/reservations/:id`
+- `POST /api/reservations/:id/confirm`
+- `POST /api/reservations/:id/release`
