@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { releaseExpiredReservations } from '@/lib/cleanup';
+import { requireUser } from '@/lib/api-auth';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -83,6 +84,12 @@ export async function POST(request: NextRequest) {
   };
 
   try {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) {
+      await saveIdempotencyResponse(401, { error: 'Sign in required' });
+      return auth;
+    }
+
     // 2. Parse and validate body
     const body = await request.json();
     const parsed = reserveSchema.safeParse(body);
@@ -130,6 +137,7 @@ export async function POST(request: NextRequest) {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
       const reservation = await tx.reservation.create({
         data: {
+          userId: auth.id,
           productId,
           warehouseId,
           units,

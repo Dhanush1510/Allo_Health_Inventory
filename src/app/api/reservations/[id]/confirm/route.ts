@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/api-auth';
+import { assertReservationAccess } from '@/lib/reservation-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +77,9 @@ export async function POST(
   };
 
   try {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const now = new Date();
 
     // 2. Fetch reservation details
@@ -91,6 +96,9 @@ export async function POST(
       await saveIdempotencyResponse(404, errorMsg);
       return NextResponse.json(errorMsg, { status: 404 });
     }
+
+    const forbidden = assertReservationAccess(reservation, auth);
+    if (forbidden) return forbidden;
 
     // 3. Handle already processed reservation
     if (reservation.status === 'CONFIRMED') {

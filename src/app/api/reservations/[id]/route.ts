@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { releaseExpiredReservations } from '@/lib/cleanup';
+import { requireUser } from '@/lib/api-auth';
+import { assertReservationAccess } from '@/lib/reservation-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +13,9 @@ export async function GET(
   const { id } = await params;
 
   try {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     await releaseExpiredReservations();
 
     const reservation = await prisma.reservation.findUnique({
@@ -24,6 +29,9 @@ export async function GET(
     if (!reservation) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
+
+    const forbidden = assertReservationAccess(reservation, auth);
+    if (forbidden) return forbidden;
 
     return NextResponse.json(reservation);
   } catch (err: unknown) {

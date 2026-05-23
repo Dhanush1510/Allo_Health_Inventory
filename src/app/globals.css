@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --aurora-deep: #050b14;
+  --aurora-green: #10b981;
+  --aurora-cyan: #06b6d4;
+  --aurora-blue: #1e3a5f;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--aurora-deep);
+  --color-foreground: #e2e8f0;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--aurora-deep);
+  color: #e2e8f0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.aurora-bg {
+  position: relative;
+  background: var(--aurora-deep);
+  overflow-x: hidden;
+}
+
+.aurora-bg::before,
+.aurora-bg::after {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aurora-bg::before {
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(16, 185, 129, 0.35), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 80% 30%, rgba(6, 182, 212, 0.3), transparent 50%),
+    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(30, 58, 95, 0.5), transparent 60%);
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+
+.aurora-bg::after {
+  background:
+    radial-gradient(ellipse 40% 35% at 70% 70%, rgba(52, 211, 153, 0.2), transparent 50%),
+    radial-gradient(ellipse 45% 40% at 10% 80%, rgba(14, 165, 233, 0.25), transparent 55%);
+  animation: aurora-drift 22s ease-in-out infinite alternate-reverse;
+}
+
+.aurora-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(3%, -2%) scale(1.05);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.auth-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+}
+
+.auth-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 11, 20, 0.6);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #f1f5f9;
+  outline: none;
+}
+
+.auth-input:focus {
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }

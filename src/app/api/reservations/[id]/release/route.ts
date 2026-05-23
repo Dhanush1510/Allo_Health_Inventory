@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireUser } from '@/lib/api-auth';
+import { assertReservationAccess } from '@/lib/reservation-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +76,9 @@ export async function POST(
   };
 
   try {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const reservation = await prisma.reservation.findUnique({
       where: { id },
       include: {
@@ -87,6 +92,9 @@ export async function POST(
       await saveIdempotencyResponse(404, errorBody);
       return NextResponse.json(errorBody, { status: 404 });
     }
+
+    const forbidden = assertReservationAccess(reservation, auth);
+    if (forbidden) return forbidden;
 
     if (reservation.status === 'RELEASED') {
       await saveIdempotencyResponse(200, reservation);
