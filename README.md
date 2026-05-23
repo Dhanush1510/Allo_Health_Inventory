@@ -52,6 +52,36 @@ npm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000)
 
+## Deploy to Vercel
+
+Repository: [github.com/Dhanush1510/Allo_Health_Inventory](https://github.com/Dhanush1510/Allo_Health_Inventory)
+
+1. Log in to the Vercel CLI:
+
+```bash
+npx vercel login
+```
+
+2. From the project root, link the project and add environment variables (use your Supabase **Session** or direct Postgres URL):
+
+```bash
+npx vercel link
+npx vercel env add DATABASE_URL production
+# paste: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres?sslmode=require
+npx vercel env add RUN_SEED production
+# enter: true   (only for the first deploy, then remove or set to false)
+```
+
+3. Deploy to production:
+
+```bash
+npx vercel --prod
+```
+
+The Vercel build runs `prisma migrate deploy` and optionally seeds when `RUN_SEED=true`. After the first successful deploy, unset `RUN_SEED` so production data is not reset on every build.
+
+Alternatively, import the GitHub repo in the [Vercel dashboard](https://vercel.com/new) and set `DATABASE_URL` (and `RUN_SEED=true` once) under Project Settings → Environment Variables.
+
 ## Reservation expiry mechanism
 
 This project uses a lazy cleanup approach:
