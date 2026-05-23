@@ -4,6 +4,10 @@ A Next.js App Router application that implements a concurrent-safe inventory res
 
 ## Features
 
+- Aurora-themed ecommerce storefront with **Shop**, **Reserved**, and **Orders** tabs
+- User registration and sign-in (`User` table in Postgres) with session cookies
+- Per-user reservations — countdown uses server `expiresAt`, so holds persist across sign-out
+- 14 wellness products with Unsplash imagery and compact descriptions
 - Products and warehouses with per-warehouse stock counts
 - `total` vs `reserved` stock tracking
 - `pending`, `confirmed`, and `released` reservation states
@@ -20,11 +24,14 @@ A Next.js App Router application that implements a concurrent-safe inventory res
 npm install
 ```
 
-2. Create a `.env` file with a **hosted** PostgreSQL connection string (Neon, Supabase, or Railway free tiers work well):
+2. Create a `.env` file:
 
 ```bash
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-REGION.pooler.supabase.com:5432/postgres"
+AUTH_SECRET="generate-a-long-random-string"
 ```
+
+Use your Supabase **session pooler** URI (Settings → Database). Set `AUTH_SECRET` to any long random string for JWT sessions.
 
 For local development you can also run Postgres in Docker:
 
