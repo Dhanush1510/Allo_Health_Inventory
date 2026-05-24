@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, ShoppingCart, User } from 'lucide-react';
+import { Search, ShoppingCart, User, Github } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TabId } from '@/types';
 
@@ -77,21 +77,33 @@ export function SiteHeader({
       </div>
 
       <nav className="border-t border-white/20 bg-white">
-        <div className="mx-auto flex max-w-7xl gap-1 px-4 sm:px-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              className={`border-b-2 px-4 py-3 text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? 'border-[#2874f0] text-[#2874f0]'
-                  : 'border-transparent text-[#878787] hover:text-[#2874f0]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-1 px-4 sm:px-6">
+          <div className="flex gap-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                className={`border-b-2 px-4 py-3 text-sm font-medium transition ${
+                  activeTab === tab.id
+                    ? 'border-[#2874f0] text-[#2874f0]'
+                    : 'border-transparent text-[#878787] hover:text-[#2874f0]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <a
+            href="https://github.com/Dhanush1510/Allo_Health_Inventory"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-sm px-4 py-3 text-sm text-[#878787] transition hover:text-[#2874f0]"
+            aria-label="GitHub repository"
+          >
+            <Github className="h-4 w-4" />
+            <span className="hidden sm:inline">Repository</span>
+          </a>
         </div>
       </nav>
     </header>

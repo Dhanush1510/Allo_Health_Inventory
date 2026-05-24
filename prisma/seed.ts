@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { prisma } from '../src/lib/db';
 
-const img = (seed: string) => `https://picsum.photos/seed/${seed}/600/600`;
+const img = (fileName: string) => `/images/products/${fileName}.jpg`;
 
 const catalog = [
   {

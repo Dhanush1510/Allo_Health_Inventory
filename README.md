@@ -9,7 +9,7 @@ A Next.js ecommerce-style app with concurrent-safe inventory reservations, user 
 - Product detail pages with pack size, ingredients, material, and highlights (like marketplace spec tables)
 - User registration and sign-in (`User` table in Postgres)
 - Per-user reservations — `expiresAt` stored server-side; timers persist across sign-out
-- 14 wellness products with reliable [picsum.photos](https://picsum.photos) images
+- 14 wellness products with curated local product images
 - **Redis** (Upstash) for idempotency keys and per-SKU warehouse locks
 - Silent background refresh every 12s (stock, reservations) without loading spinners
 
