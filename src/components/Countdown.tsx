@@ -16,13 +16,7 @@ export function Countdown({ expiresAt }: { expiresAt: string }) {
   const expired = seconds <= 0;
 
   return (
-    <span
-      className={
-        expired
-          ? 'font-mono text-sm text-rose-300'
-          : 'font-mono text-sm text-emerald-300'
-      }
-    >
+    <span className={expired ? 'font-mono font-medium text-red-600' : 'font-mono font-medium text-[#2874f0]'}>
       {expired ? 'Expired' : formatCountdown(seconds)}
     </span>
   );

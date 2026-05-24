@@ -1,20 +1,17 @@
 # Allo Health Inventory Reservation Demo
 
-A Next.js App Router application that implements a concurrent-safe inventory reservation flow for multi-warehouse stock.
+A Next.js ecommerce-style app with concurrent-safe inventory reservations, user accounts, and Redis-backed idempotency and distributed locking.
 
 ## Features
 
-- Aurora-themed ecommerce storefront with **Shop**, **Reserved**, and **Orders** tabs
-- User registration and sign-in (`User` table in Postgres) with session cookies
-- Per-user reservations — countdown uses server `expiresAt`, so holds persist across sign-out
-- 14 wellness products with Unsplash imagery and compact descriptions
-- Products and warehouses with per-warehouse stock counts
-- `total` vs `reserved` stock tracking
-- `pending`, `confirmed`, and `released` reservation states
-- Concurrent-safe reservation endpoint using an atomic stock update in PostgreSQL
-- Lazy expiry cleanup on reads and during reservation operations
-- Frontend product page with reservation buttons and live checkout flow
-- Idempotency support for reserve and confirm APIs
+- Flipkart/Amazon-inspired storefront (shop grid, product detail pages, reserved cart, orders)
+- **Reserve** button holds stock for 10 minutes per user
+- Product detail pages with pack size, ingredients, material, and highlights (like marketplace spec tables)
+- User registration and sign-in (`User` table in Postgres)
+- Per-user reservations — `expiresAt` stored server-side; timers persist across sign-out
+- 14 wellness products with reliable [picsum.photos](https://picsum.photos) images
+- **Redis** (Upstash) for idempotency keys and per-SKU warehouse locks
+- Silent background refresh every 12s (stock, reservations) without loading spinners
 
 ## Local development
 
@@ -29,100 +26,76 @@ npm install
 ```bash
 DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-REGION.pooler.supabase.com:5432/postgres"
 AUTH_SECRET="generate-a-long-random-string"
+UPSTASH_REDIS_REST_URL="https://YOUR-REDIS.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your-upstash-token"
 ```
 
-Use your Supabase **session pooler** URI (Settings → Database). Set `AUTH_SECRET` to any long random string for JWT sessions.
+Get free Redis from [Upstash](https://upstash.com) (Vercel integration works). Without Redis, idempotency falls back to Postgres and stock locks use SQL-only atomic updates.
 
-For local development you can also run Postgres in Docker:
-
-```bash
-docker run -d --name allo-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=allo -p 5432:5432 postgres:16
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/allo"
-```
-
-3. Run Prisma migrations and seed the database:
+3. Migrate and seed:
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate deploy
 npx prisma db seed
 ```
 
-Prisma 7 uses the `@prisma/adapter-pg` driver adapter; the connection string is read at runtime in `src/lib/db.ts`, not from the schema file. The client is generated into `src/generated/prisma` (`prisma generate` runs on `npm install` and `npm run build`).
-
-> If you previously used SQLite (`file:./dev.db`), replace `DATABASE_URL` with a PostgreSQL URL before running the app.
-
-4. Start the app:
+4. Run the app:
 
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000)
+## Idempotency (Redis + Postgres fallback)
+
+`POST /api/reservations` and `POST /api/reservations/:id/confirm` accept an `Idempotency-Key` header.
+
+### With Redis (production)
+
+1. Client sends `Idempotency-Key: <uuid>` with the request.
+2. Server runs `SET idempotency:{scope}:{key} { status: PENDING } NX EX 86400`.
+   - If the key already holds `SUCCESS`, the stored HTTP status and JSON body are returned immediately (no side effects).
+   - If the key is `PENDING`, respond `409` (another in-flight request).
+3. On success, the key is overwritten with `{ status: SUCCESS, responseCode, responseBody }` (24h TTL).
+4. On unexpected `500`, the key is deleted so the client can retry safely.
+
+Scopes: `reserve` for new holds, `confirm:{reservationId}` for confirmations.
+
+### Without Redis (local fallback)
+
+Same flow using the `Idempotency` Postgres table (legacy path for dev machines without Upstash).
+
+## Distributed locking (Redis)
+
+Before the atomic stock `UPDATE`, reserve/confirm acquire a Redis lock:
+
+- Key: `lock:stock:{productId}:{warehouseId}`
+- `SET` with `NX` and 15s TTL; token = random UUID
+- Released via Lua script (delete only if token matches)
+- Retries for up to 4s, then `409 Warehouse is busy`
+
+This serializes concurrent requests per SKU/warehouse across serverless instances. The SQL `WHERE (total - reserved) >= units` guard remains the source of truth for overselling.
+
+## Reservation expiry
+
+Lazy cleanup on `GET /api/products`, `GET /api/products/:id`, and `POST /api/reservations`.
+
+## API Endpoints
+
+- `GET /api/products` — catalog with live stock
+- `GET /api/products/:id` — product detail + specs
+- `POST /api/auth/register` | `POST /api/auth/login` | `POST /api/auth/logout` | `GET /api/auth/me`
+- `POST /api/reservations` — create hold (auth required)
+- `GET /api/reservations/mine` — user's reservations
+- `POST /api/reservations/:id/confirm` | `POST /api/reservations/:id/release`
 
 ## Deploy to Vercel
 
 Repository: [github.com/Dhanush1510/Allo_Health_Inventory](https://github.com/Dhanush1510/Allo_Health_Inventory)
 
-1. Log in to the Vercel CLI:
-
-```bash
-npx vercel login
-```
-
-2. From the project root, link the project and add environment variables (use your Supabase **Session** or direct Postgres URL):
-
-```bash
-npx vercel link
-npx vercel env add DATABASE_URL production
-# paste: postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres?sslmode=require
-npx vercel env add RUN_SEED production
-# enter: true   (only for the first deploy, then remove or set to false)
-```
-
-3. Deploy to production:
+Set environment variables: `DATABASE_URL`, `AUTH_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 
 ```bash
 npx vercel --prod
 ```
 
-The Vercel build runs `prisma migrate deploy` and optionally seeds when `RUN_SEED=true`. After the first successful deploy, unset `RUN_SEED` so production data is not reset on every build.
-
-Alternatively, import the GitHub repo in the [Vercel dashboard](https://vercel.com/new) and set `DATABASE_URL` (and `RUN_SEED=true` once) under Project Settings → Environment Variables.
-
-## Reservation expiry mechanism
-
-This project uses a lazy cleanup approach:
-
-- `GET /api/products` runs `releaseExpiredReservations()` before loading products
-- `POST /api/reservations` also calls cleanup before attempting a new hold
-- expired reservations are marked `RELEASED` and their reserved stock is decremented
-
-In production, a cron job or background worker could periodically run the same cleanup logic.
-
-## Idempotency (bonus)
-
-`POST /api/reservations` and `POST /api/reservations/:id/confirm` accept an optional `Idempotency-Key` header.
-
-- First request with a key creates an `Idempotency` row in `PENDING`, runs the operation, then stores the HTTP status and JSON body as `SUCCESS`.
-- Retries with the same key return the stored response without re-running stock updates.
-- Concurrent duplicate requests while `PENDING` receive `409`.
-- On unexpected `500` errors during reserve, the key row is deleted so the client can safely retry.
-
-The checkout UI generates a fresh UUID per confirm/cancel action; reserve uses a new key per button click.
-
-## Notes and trade-offs
-
-- The reservation API uses a single atomic SQL `UPDATE "Stock" SET "reserved" = "reserved" + units WHERE (total - reserved) >= units` inside a transaction. Under concurrent requests, exactly one request can claim the last available unit.
-- The confirmation and release endpoints preserve idempotency via the optional `Idempotency-Key` header.
-- The frontend is intentionally lightweight and focused on the reservation flow.
-- Product images use a shared placeholder asset so seeded demo data displays consistently.
-- With more time: a dedicated cron/worker for expiry instead of lazy cleanup only, shared idempotency helper to reduce duplication across routes, and automated concurrency tests against the low-stock SKUs in seed data.
-
-## API Endpoints
-
-- `GET /api/products`
-- `GET /api/warehouses`
-- `POST /api/reservations`
-- `GET /api/reservations/:id`
-- `POST /api/reservations/:id/confirm`
-- `POST /api/reservations/:id/release`
+Live: [allo-health-inventory.vercel.app](https://allo-health-inventory.vercel.app)

@@ -1,87 +1,75 @@
 @import "tailwindcss";
 
 :root {
-  --aurora-deep: #050b14;
-  --aurora-green: #10b981;
-  --aurora-cyan: #06b6d4;
-  --aurora-blue: #1e3a5f;
+  --brand-blue: #2874f0;
+  --brand-blue-dark: #1c5fc7;
+  --brand-yellow: #ff9f00;
+  --surface: #f1f3f6;
+  --card: #ffffff;
+  --text: #212121;
+  --muted: #878787;
+  --border: #e0e0e0;
+  --success: #388e3c;
 }
 
 @theme inline {
-  --color-background: var(--aurora-deep);
-  --color-foreground: #e2e8f0;
+  --color-background: var(--surface);
+  --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--aurora-deep);
-  color: #e2e8f0;
+  background: var(--surface);
+  color: var(--text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-}
-
-.aurora-bg {
-  position: relative;
-  background: var(--aurora-deep);
-  overflow-x: hidden;
-}
-
-.aurora-bg::before,
-.aurora-bg::after {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.aurora-bg::before {
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(16, 185, 129, 0.35), transparent 55%),
-    radial-gradient(ellipse 50% 40% at 80% 30%, rgba(6, 182, 212, 0.3), transparent 50%),
-    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(30, 58, 95, 0.5), transparent 60%);
-  animation: aurora-drift 18s ease-in-out infinite alternate;
-}
-
-.aurora-bg::after {
-  background:
-    radial-gradient(ellipse 40% 35% at 70% 70%, rgba(52, 211, 153, 0.2), transparent 50%),
-    radial-gradient(ellipse 45% 40% at 10% 80%, rgba(14, 165, 233, 0.25), transparent 55%);
-  animation: aurora-drift 22s ease-in-out infinite alternate-reverse;
-}
-
-.aurora-bg > * {
-  position: relative;
-  z-index: 1;
-}
-
-@keyframes aurora-drift {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(3%, -2%) scale(1.05);
-  }
-}
-
-.auth-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px);
 }
 
 .auth-input {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(5, 11, 20, 0.6);
-  padding: 0.625rem 0.875rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.625rem 0.75rem;
   font-size: 0.875rem;
-  color: #f1f5f9;
   outline: none;
 }
 
 .auth-input:focus {
-  border-color: rgba(16, 185, 129, 0.6);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 2px rgba(40, 116, 240, 0.2);
+}
+
+.btn-primary {
+  background: var(--brand-yellow);
+  color: #111;
+  font-weight: 600;
+  border-radius: 2px;
+  transition: filter 0.15s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--brand-blue);
+  font-weight: 600;
+  border-radius: 2px;
+}
+
+.product-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s;
+}
+
+.product-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }

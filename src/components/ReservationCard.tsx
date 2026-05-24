@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Countdown } from '@/components/Countdown';
 import type { Reservation } from '@/types';
 import { secondsUntil } from '@/lib/time';
@@ -10,57 +11,63 @@ export function ReservationCard({
   onConfirm,
   onRelease,
   busy,
+  showActions = true,
 }: {
   reservation: Reservation;
   onConfirm: (id: string) => void;
   onRelease: (id: string) => void;
   busy: string | null;
+  showActions?: boolean;
 }) {
   const isPending = reservation.status === 'PENDING';
   const expired = isPending && secondsUntil(reservation.expiresAt) <= 0;
 
   return (
-    <article className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <Image
-        src={reservation.product.imageUrl ?? '/images/placeholder.svg'}
-        alt={reservation.product.name}
-        width={88}
-        height={88}
-        className="h-20 w-20 shrink-0 rounded-xl object-cover"
-      />
+    <article className="flex gap-4 rounded-sm border border-[#e0e0e0] bg-white p-4 shadow-sm">
+      <Link href={`/product/${reservation.productId}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-sm bg-[#f8f8f8]">
+        <Image
+          src={reservation.product.imageUrl ?? '/images/placeholder.svg'}
+          alt={reservation.product.name}
+          fill
+          className="object-cover p-1"
+          unoptimized={reservation.product.imageUrl?.includes('picsum.photos')}
+        />
+      </Link>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h3 className="font-semibold text-white">{reservation.product.name}</h3>
-            <p className="mt-0.5 text-xs text-slate-400">
-              {reservation.warehouse.city} · {reservation.warehouse.code}
+            <Link href={`/product/${reservation.productId}`} className="font-medium text-[#212121] hover:text-[#2874f0]">
+              {reservation.product.name}
+            </Link>
+            <p className="mt-0.5 text-xs text-[#878787]">
+              Ships from {reservation.warehouse.city} ({reservation.warehouse.code})
             </p>
           </div>
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            className={`rounded-sm px-2 py-0.5 text-xs font-medium ${
               reservation.status === 'CONFIRMED'
-                ? 'bg-emerald-500/20 text-emerald-300'
+                ? 'bg-green-100 text-green-800'
                 : reservation.status === 'PENDING'
-                ? 'bg-cyan-500/20 text-cyan-200'
-                : 'bg-slate-500/20 text-slate-400'
+                ? 'bg-blue-50 text-blue-700'
+                : 'bg-gray-100 text-gray-600'
             }`}
           >
             {reservation.status}
           </span>
         </div>
-        <p className="mt-2 text-sm font-medium text-emerald-300">₹{reservation.product.price.toFixed(0)}</p>
+        <p className="mt-2 text-base font-semibold">₹{reservation.product.price.toFixed(0)}</p>
         {isPending ? (
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[#878787]">
             Hold expires in <Countdown expiresAt={reservation.expiresAt} />
           </p>
         ) : null}
-        {isPending && !expired ? (
+        {showActions && isPending && !expired ? (
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               disabled={busy === reservation.id}
               onClick={() => onConfirm(reservation.id)}
-              className="rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-1.5 text-xs font-semibold text-[#050b14] disabled:opacity-50"
+              className="btn-primary px-4 py-1.5 text-xs"
             >
               {busy === reservation.id ? '…' : 'Confirm order'}
             </button>
@@ -68,7 +75,7 @@ export function ReservationCard({
               type="button"
               disabled={busy === reservation.id}
               onClick={() => onRelease(reservation.id)}
-              className="rounded-full border border-white/20 px-4 py-1.5 text-xs text-slate-200 disabled:opacity-50"
+              className="btn-secondary px-4 py-1.5 text-xs"
             >
               Remove
             </button>

@@ -1,37 +1,32 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ProductCard } from '@/components/ProductCard';
 import { ReservationCard } from '@/components/ReservationCard';
 import { SiteHeader } from '@/components/SiteHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Product, Reservation, TabId } from '@/types';
 
-export function Storefront() {
+const POLL_MS = 12000;
+
+export function Storefront({ initialTab }: { initialTab?: TabId }) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<TabId>('shop');
+  const [tab, setTab] = useState<TabId>(initialTab ?? 'shop');
   const [products, setProducts] = useState<Product[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [loadingReservations, setLoadingReservations] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reserving, setReserving] = useState<string | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [reserving, setReserving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   const loadProducts = useCallback(async () => {
-    setLoadingProducts(true);
-    try {
-      const res = await fetch('/api/products', { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load products');
-      setProducts(data as Product[]);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoadingProducts(false);
-    }
+    const res = await fetch('/api/products', { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Failed to load products');
+    setProducts(data as Product[]);
   }, []);
 
   const loadReservations = useCallback(async () => {
@@ -39,40 +34,51 @@ export function Storefront() {
       setReservations([]);
       return;
     }
-    setLoadingReservations(true);
-    try {
-      const res = await fetch('/api/reservations/mine', { cache: 'no-store' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load cart');
-      setReservations(data as Reservation[]);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoadingReservations(false);
-    }
+    const res = await fetch('/api/reservations/mine', { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Failed to load reservations');
+    setReservations(data as Reservation[]);
   }, [user]);
 
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  const refreshAll = useCallback(
+    async (silent: boolean) => {
+      try {
+        if (!silent) setInitialLoad(true);
+        await Promise.all([loadProducts(), loadReservations()]);
+        setError(null);
+      } catch (e) {
+        if (!silent) setError((e as Error).message);
+      } finally {
+        if (!silent) {
+          setInitialLoad(false);
+          hasLoadedOnce.current = true;
+        }
+      }
+    },
+    [loadProducts, loadReservations]
+  );
 
   useEffect(() => {
-    loadReservations();
-    const id = window.setInterval(loadReservations, 15000);
+    refreshAll(false);
+  }, [refreshAll]);
+
+  useEffect(() => {
+    if (!hasLoadedOnce.current) return;
+    const id = window.setInterval(() => refreshAll(true), POLL_MS);
     return () => window.clearInterval(id);
-  }, [loadReservations]);
+  }, [refreshAll]);
 
   const pending = reservations.filter((r) => r.status === 'PENDING');
   const orders = reservations.filter((r) => r.status === 'CONFIRMED');
 
-  async function addToCart(productId: string, warehouseId: string) {
+  async function reserve(productId: string, warehouseId: string) {
     if (!user) {
       setError('Sign in to reserve items');
       return;
     }
     setError(null);
     setMessage(null);
-    setReserving(`${productId}:${warehouseId}`);
+    setReserving(true);
     try {
       const res = await fetch('/api/reservations', {
         method: 'POST',
@@ -87,14 +93,13 @@ export function Storefront() {
         setError(body.error ?? 'Could not reserve');
         return;
       }
-      setMessage('Added to reserved cart — your 10-minute hold is active.');
-      await loadReservations();
-      await loadProducts();
+      setMessage('Reserved for 10 minutes — timer continues if you sign out.');
+      await refreshAll(true);
       setTab('reserved');
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setReserving(null);
+      setReserving(false);
     }
   }
 
@@ -111,9 +116,8 @@ export function Storefront() {
         setError(body.error ?? 'Action failed');
         return;
       }
-      setMessage(action === 'confirm' ? 'Order confirmed!' : 'Removed from cart');
-      await loadReservations();
-      await loadProducts();
+      setMessage(action === 'confirm' ? 'Order placed successfully!' : 'Reservation removed');
+      await refreshAll(true);
       if (action === 'confirm') setTab('orders');
     } catch (e) {
       setError((e as Error).message);
@@ -123,101 +127,66 @@ export function Storefront() {
   }
 
   return (
-    <div className="aurora-bg min-h-screen text-slate-100">
+    <div className="min-h-screen bg-[#f1f3f6]">
       <SiteHeader activeTab={tab} onTabChange={setTab} reservedCount={pending.length} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         {message ? (
-          <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          <div className="mb-4 rounded-sm border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             {message}
           </div>
         ) : null}
         {error ? (
-          <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          <div className="mb-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             {error}
           </div>
         ) : null}
 
         {tab === 'shop' ? (
           <>
-            <section className="mb-8">
-              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Wellness, held for you
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                Add to cart to reserve stock for 10 minutes. Confirm before the timer ends — your hold
-                stays active even after sign-out.
+            <div className="mb-4 rounded-sm bg-white p-4 shadow-sm">
+              <h1 className="text-xl font-semibold text-[#212121]">Wellness & nutrition</h1>
+              <p className="mt-1 text-sm text-[#878787]">
+                Reserve stock for 10 minutes — click a product for full specifications.
               </p>
-            </section>
-            {loadingProducts ? (
-              <p className="text-center text-slate-400">Loading catalog…</p>
+            </div>
+            {initialLoad && products.length === 0 ? (
+              <p className="py-16 text-center text-[#878787]">Loading catalog…</p>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => {
-                  const available = product.stocks.reduce((s, st) => s + st.available, 0);
-                  const best = product.stocks.find((st) => st.available > 0) ?? product.stocks[0];
-                  return (
-                    <article
-                      key={product.id}
-                      className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm transition hover:border-cyan-400/30"
-                    >
-                      <div className="relative aspect-square overflow-hidden">
-                        <Image
-                          src={product.imageUrl ?? '/images/placeholder.svg'}
-                          alt={product.name}
-                          fill
-                          sizes="(max-width:768px) 50vw, 25vw"
-                          className="object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                      <div className="flex flex-1 flex-col p-4">
-                        <p className="text-[10px] uppercase tracking-widest text-cyan-400/80">{product.sku}</p>
-                        <h2 className="mt-1 line-clamp-2 text-sm font-semibold text-white">{product.name}</h2>
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-400">{product.description}</p>
-                        <div className="mt-auto flex items-center justify-between pt-3">
-                          <span className="text-base font-bold text-emerald-300">₹{product.price.toFixed(0)}</span>
-                          <span className="text-xs text-slate-500">{available} left</span>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={!user || !best || best.available < 1 || reserving !== null}
-                          onClick={() => best && addToCart(product.id, best.warehouseId)}
-                          className="mt-3 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-2.5 text-sm font-semibold text-[#050b14] transition hover:opacity-90 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-600 disabled:text-slate-400"
-                        >
-                          {!user
-                            ? 'Sign in to add'
-                            : available < 1
-                            ? 'Sold out'
-                            : reserving
-                            ? 'Adding…'
-                            : 'Add to cart'}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    signedIn={Boolean(user)}
+                    reserving={reserving}
+                    onReserve={reserve}
+                  />
+                ))}
               </div>
             )}
           </>
         ) : null}
 
         {tab === 'reserved' ? (
-          <section>
-            <h1 className="text-2xl font-bold text-white">Reserved items</h1>
-            <p className="mt-1 text-sm text-slate-400">Active holds with live countdown from your account.</p>
+          <section className="rounded-sm bg-white p-4 shadow-sm">
+            <h1 className="text-xl font-semibold">Reserved items</h1>
+            <p className="mt-1 text-sm text-[#878787]">
+              Timers sync from the server — no reset on refresh or sign-in.
+            </p>
             {!user ? (
-              <p className="mt-8 text-center text-slate-400">
-                <Link href="/login" className="text-cyan-400 underline">
+              <p className="mt-8 text-center text-[#878787]">
+                <Link href="/login" className="text-[#2874f0] font-medium hover:underline">
                   Sign in
                 </Link>{' '}
-                to view your cart.
+                to view reservations.
               </p>
-            ) : loadingReservations ? (
-              <p className="mt-8 text-center text-slate-400">Loading…</p>
+            ) : initialLoad && reservations.length === 0 ? (
+              <p className="mt-8 text-center text-[#878787]">Loading…</p>
             ) : pending.length === 0 ? (
-              <p className="mt-8 text-center text-slate-400">No reserved items. Browse the shop to add some.</p>
+              <p className="mt-8 text-center text-[#878787]">No active reservations.</p>
             ) : (
-              <div className="mt-6 space-y-3">
+              <div className="mt-4 space-y-3">
                 {pending.map((r) => (
                   <ReservationCard
                     key={r.id}
@@ -233,27 +202,26 @@ export function Storefront() {
         ) : null}
 
         {tab === 'orders' ? (
-          <section>
-            <h1 className="text-2xl font-bold text-white">Orders</h1>
-            <p className="mt-1 text-sm text-slate-400">Confirmed purchases from your reservations.</p>
+          <section className="rounded-sm bg-white p-4 shadow-sm">
+            <h1 className="text-xl font-semibold">Your orders</h1>
+            <p className="mt-1 text-sm text-[#878787]">Confirmed purchases from completed reservations.</p>
             {!user ? (
-              <p className="mt-8 text-center text-slate-400">
-                <Link href="/login" className="text-cyan-400 underline">
+              <p className="mt-8 text-center text-[#878787]">
+                <Link href="/login" className="text-[#2874f0] font-medium hover:underline">
                   Sign in
                 </Link>{' '}
                 to see orders.
               </p>
-            ) : loadingReservations ? (
-              <p className="mt-8 text-center text-slate-400">Loading…</p>
             ) : orders.length === 0 ? (
-              <p className="mt-8 text-center text-slate-400">No orders yet.</p>
+              <p className="mt-8 text-center text-[#878787]">No orders yet.</p>
             ) : (
-              <div className="mt-6 space-y-3">
+              <div className="mt-4 space-y-3">
                 {orders.map((r) => (
                   <ReservationCard
                     key={r.id}
                     reservation={r}
                     busy={busyId}
+                    showActions={false}
                     onConfirm={() => {}}
                     onRelease={() => {}}
                   />

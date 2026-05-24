@@ -22,6 +22,11 @@ export type Product = {
   description: string;
   price: number;
   imageUrl?: string | null;
+  category?: string | null;
+  packSize?: string | null;
+  ingredients?: string | null;
+  material?: string | null;
+  highlights?: string[];
   stocks: WarehouseStock[];
 };
 

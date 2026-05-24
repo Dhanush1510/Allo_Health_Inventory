@@ -10,12 +10,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const { refresh } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-  });
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,12 +21,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       const body =
         mode === 'login'
           ? { email: form.email, password: form.password }
-          : {
-              name: form.name,
-              email: form.email,
-              password: form.password,
-              phone: form.phone || undefined,
-            };
+          : { name: form.name, email: form.email, password: form.password, phone: form.phone || undefined };
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,23 +43,18 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   }
 
   return (
-    <div className="aurora-bg flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="auth-card w-full max-w-md rounded-2xl p-8">
-        <Link href="/" className="text-sm text-cyan-400 hover:underline">
-          ← Back to store
+    <div className="flex min-h-screen items-center justify-center bg-[#f1f3f6] px-4 py-12">
+      <div className="w-full max-w-md rounded-sm bg-white p-8 shadow-md">
+        <Link href="/" className="text-xl font-bold italic text-[#2874f0]">
+          Allo<span className="text-[#ffe500]">Health</span>
         </Link>
-        <h1 className="mt-4 text-2xl font-bold text-white">
-          {mode === 'login' ? 'Welcome back' : 'Create your account'}
+        <h1 className="mt-6 text-2xl font-semibold text-[#212121]">
+          {mode === 'login' ? 'Login' : 'Create account'}
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          {mode === 'login'
-            ? 'Sign in to manage reservations and orders.'
-            : 'Register to save holds across sessions.'}
-        </p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === 'register' ? (
             <>
-              <label className="block text-xs font-medium text-slate-300">
+              <label className="block text-sm font-medium text-[#212121]">
                 Full name
                 <input
                   className="auth-input mt-1"
@@ -78,7 +63,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                   required
                 />
               </label>
-              <label className="block text-xs font-medium text-slate-300">
+              <label className="block text-sm font-medium text-[#212121]">
                 Phone (optional)
                 <input
                   className="auth-input mt-1"
@@ -88,7 +73,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               </label>
             </>
           ) : null}
-          <label className="block text-xs font-medium text-slate-300">
+          <label className="block text-sm font-medium text-[#212121]">
             Email
             <input
               type="email"
@@ -98,7 +83,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               required
             />
           </label>
-          <label className="block text-xs font-medium text-slate-300">
+          <label className="block text-sm font-medium text-[#212121]">
             Password
             <input
               type="password"
@@ -109,31 +94,23 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               minLength={mode === 'register' ? 8 : 1}
             />
           </label>
-          {error ? (
-            <p className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-3 text-sm font-semibold text-[#050b14] disabled:opacity-50"
-          >
-            {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-sm">
+            {loading ? 'Please wait…' : mode === 'login' ? 'Login' : 'Register'}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-slate-400">
+        <p className="mt-6 text-center text-sm text-[#878787]">
           {mode === 'login' ? (
             <>
-              New here?{' '}
-              <Link href="/register" className="text-emerald-400 hover:underline">
-                Register
+              New customer?{' '}
+              <Link href="/register" className="text-[#2874f0] font-medium">
+                Start here
               </Link>
             </>
           ) : (
             <>
-              Already have an account?{' '}
-              <Link href="/login" className="text-emerald-400 hover:underline">
+              Already registered?{' '}
+              <Link href="/login" className="text-[#2874f0] font-medium">
                 Sign in
               </Link>
             </>

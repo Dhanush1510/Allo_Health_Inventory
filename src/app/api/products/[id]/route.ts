@@ -5,21 +5,28 @@ import { formatProduct } from '@/lib/product-format';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
   try {
     await releaseExpiredReservations();
 
-    const products = await prisma.product.findMany({
-      include: {
-        stocks: { include: { warehouse: true } },
-      },
-      orderBy: { createdAt: 'asc' },
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: { stocks: { include: { warehouse: true } } },
     });
 
-    return NextResponse.json(products.map(formatProduct));
+    if (!product) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(formatProduct(product));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[API_PRODUCTS_GET]', err);
+    console.error('[API_PRODUCTS_ID_GET]', err);
     return NextResponse.json({ error: 'Internal Server Error', details: message }, { status: 500 });
   }
 }
